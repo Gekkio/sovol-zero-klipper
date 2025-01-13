@@ -969,7 +969,7 @@ class MenuManager:
                     self.changRootMain()
                 if name in ["Cancel printing", "Resume printing"]:
                     self.back()
-                if name in ["Belt test", "Calibrate Zoffset", "Cooldown", "Start printing", "Show IP", "Bed Mesh", "Quad Gantry Lvl", "Resonances", "Preheat PLA", "Preheat ABS", "Calibration", "PID Tuning"]:
+                if name in ["Belt test", "Calibrate Zoffset", "Cooldown", "Start printing", "Show IP", "Eddy Calibrate", "Quad Gantry Lvl", "Resonances", "Preheat PLA", "Preheat ABS", "Calibration", "PID Tuning"]:
                     self.back()
                     self.back()
                     if name == "Calibrate Zoffset":
