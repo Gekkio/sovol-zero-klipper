@@ -964,7 +964,7 @@ class MenuManager:
                 current.run_script('gcode', event=event)
                 current.run_script(event)
                 name = current.render_name(True)
-                if name == "Cancel" or name == "Resume":
+                if name == "Cancel" or name == "Resume" or name == "Skip Calibrate":
                     self.back()
                     self.changRootMain()
                 if name in ["Cancel printing", "Resume printing"]:
