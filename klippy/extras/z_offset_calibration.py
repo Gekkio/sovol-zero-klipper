@@ -11,11 +11,9 @@ class ZoffsetCalibration:
     def __init__(self, config):
         self.printer = config.get_printer()
         self.config = config
-        x_pos_center, y_pos_center = config.getfloatlist("center_xy_position", count=2)
         x_pos_endstop, y_pos_endstop = config.getfloatlist("endstop_xy_position", count=2)
-        self.center_x_pos, self.center_y_pos = x_pos_center, y_pos_center
         self.endstop_x_pos, self.endstop_y_pos = x_pos_endstop, y_pos_endstop
-        self.z_hop = config.getfloat("z_hop", default=10.0)
+        self.z_hop = config.getfloat("z_hop", default=2.0)
         self.z_hop_speed = config.getfloat('z_hop_speed', 5., above=0.)
         self.zconfig = config.getsection('stepper_z')
         self.endstop_pin = self.zconfig.get('endstop_pin')
@@ -78,23 +76,25 @@ class ZoffsetCalibration:
         # Contact probe calibration
         gcmd.respond_info("ZoffsetCalibration: Toolhead probing ...")
         zendstop_p = _contact_probe.run_contact_probe(gcmd)
+        pos = self.toolhead.get_position()
+        pos[2] = z_max_position - self.z_hop
+        self.toolhead.set_position(pos, homing_axes=(0, 1, 2))
         reprobe_cnt = 1
         while True:
-            if(reprobe_cnt >= 6):
+            if(reprobe_cnt >= 10):
                 self.gcode.run_script_from_command('M117 Tip code: 109')
-                raise gcmd.error('ZoffsetCalibration: Toolhead probe more than five times.')
+                raise gcmd.error('ZoffsetCalibration: Toolhead probe more than ten times.')
             ## perform z hop
             if self.z_hop:
-                pos = self.toolhead.get_position()
-                pos[2] += 2
-                if pos[2] > z_limit_position:
-                    pos[2] = z_limit_position
+                pos[2] = self.toolhead.get_position()[2] + self.z_hop
+                if pos[2] > z_max_position:
+                    pos[2] = z_max_position
                 self.toolhead.manual_move([None, None, pos[2]], 5)
-            gcmd.respond_info("ZoffsetCalibration: Toolhead verifying the difference between before and after %d/5." % (reprobe_cnt))
+            gcmd.respond_info("ZoffsetCalibration: Toolhead verifying the difference between before and after %d/10." % (reprobe_cnt))
             zendstop_p1 = _contact_probe.run_contact_probe(gcmd)
             diff_z = abs(zendstop_p1[2] - zendstop_p[2])
             zendstop_p = zendstop_p1
-            if diff_z <= 0.03:
+            if diff_z <= 0.0125:
                 gcmd.respond_info("ZoffsetCalibration: Toolhead check success.")
                 break
             reprobe_cnt += 1
