@@ -68,7 +68,8 @@ class ZoffsetCalibration:
             gcmd_G28 = self.gcode.create_gcode_command("G28", "G28", {'X': 0, 'Y': 0})
             phoming.cmd_G28(gcmd_G28)
         pos = self.toolhead.get_position()
-        pos[2] = z_max_position
+        z_limit_position = z_max_position + 15
+        pos[2] = z_limit_position
         self.toolhead.set_position(pos, homing_axes=(0, 1, 2))
         self.set_z_offset(offset=0.)
         # Move to probe position
@@ -86,8 +87,8 @@ class ZoffsetCalibration:
             if self.z_hop:
                 pos = self.toolhead.get_position()
                 pos[2] += 2
-                if pos[2] > z_max_position:
-                    pos[2] = z_max_position
+                if pos[2] > z_limit_position:
+                    pos[2] = z_limit_position
                 self.toolhead.manual_move([None, None, pos[2]], 5)
             gcmd.respond_info("ZoffsetCalibration: Toolhead verifying the difference between before and after %d/5." % (reprobe_cnt))
             zendstop_p1 = _contact_probe.run_contact_probe(gcmd)
