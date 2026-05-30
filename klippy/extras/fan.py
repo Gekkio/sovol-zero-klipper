@@ -86,6 +86,7 @@ class Fan:
                 self.printer.invoke_shutdown("Exception in Hotend_fan")
             elif self.fan_name == 'chamber_fan':
                 self.gcode.run_script_from_command('SET_HEATER_TEMPERATURE HEATER=chamber_heater TARGET=0')
+                self.gcode.run_script_from_command('SET_PIN PIN=hot_led VALUE=1')
                 self.gcode.run_script_from_command('M117 Tip code: 110')
                 self.gcode.respond_info("Exception in chamber_fan")    
             elif self.fan_name == 'exhaust_fan':
