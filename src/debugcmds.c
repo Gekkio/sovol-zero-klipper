@@ -53,6 +53,15 @@ command_debug_ping(uint32_t *args)
 DECL_COMMAND_FLAGS(command_debug_ping, HF_IN_SHUTDOWN, "debug_ping data=%*s");
 
 void
+command_debug_shut(uint32_t *args)
+{
+    uint8_t count = args[0];
+    shutCode = count;
+    sendf("debug_shut data=%u", count);
+}
+DECL_COMMAND_FLAGS(command_debug_shut, HF_IN_SHUTDOWN, "debug_shut data=%u");
+
+void
 command_debug_nop(uint32_t *args)
 {
 }

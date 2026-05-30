@@ -223,7 +223,7 @@ class MCU_trsync:
             s.note_homing_end()
         return params['trigger_reason']
 
-TRSYNC_TIMEOUT = 0.025
+TRSYNC_TIMEOUT = 0.05
 TRSYNC_SINGLE_MCU_TIMEOUT = 0.250
 
 class TriggerDispatch:
@@ -909,6 +909,8 @@ class MCU:
         if (self._emergency_stop_cmd is None
             or (self._is_shutdown and not force)):
             return
+        code = self._printer.shutCode
+        # self._serial.send(f"debug_shut data={code}")
         self._emergency_stop_cmd.send()
     def _restart_arduino(self):
         logging.info("Attempting MCU '%s' reset", self._name)

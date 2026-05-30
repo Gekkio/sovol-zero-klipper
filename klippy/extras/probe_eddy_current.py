@@ -192,8 +192,9 @@ class EddyCalibration:
     def cmd_EDDY_CALIBRATE(self, gcmd):
         self.probe_speed = gcmd.get_float("PROBE_SPEED", 5., above=0.)
         # Start manual probe
-        manual_probe.ManualProbeHelper(self.printer, gcmd,
+        return manual_probe.ManualProbeHelper(self.printer, gcmd,
                                        self.post_manual_probe)
+
     def register_drift_compensation(self, comp):
         self.drift_comp = comp
 

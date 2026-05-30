@@ -11,7 +11,9 @@
 #include "board/misc.h" // bootloader_request
 #include "internal.h" // enable_pclock
 #include "sched.h" // sched_main
-
+#include "ws2811.h"
+#include "UC1701.h"
+#include "stm32/gpio.h"
 
 /****************************************************************
  * Clock setup
@@ -282,5 +284,8 @@ armcm_main(void)
         stm32f1_alternative_remap(AFIO_MAPR_SWJ_CFG_Msk,
                                   AFIO_MAPR_SWJ_CFG_JTAGDISABLE);
 
+    gpio_peripheral(GPIO('B', 7), GPIO_OUTPUT, 0);
+    gpio_out_setup(GPIO('B', 7), 0);
+    
     sched_main();
 }

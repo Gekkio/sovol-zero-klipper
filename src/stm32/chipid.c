@@ -23,13 +23,18 @@ usbserial_get_serialid(void)
    return &cdc_chipid.desc;
 }
 
+//stm32f750     1234567890123456780ULL     canbus_uuid:946fab27ac7f
+//stm32f103     1234567890123456788ULL     canbus_uuid:466a08fc77da
+
 void
 chipid_init(void)
 {
+    uint64_t custumUID = 1234567890123456780ULL;
+    uint64_t *uid_base = &custumUID;
     if (CONFIG_USB_SERIAL_NUMBER_CHIPID)
         usb_fill_serial(&cdc_chipid.desc, ARRAY_SIZE(cdc_chipid.data)
-                        , (void*)UID_BASE);
+                        , (void*)uid_base);
     if (CONFIG_CANBUS)
-        canserial_set_uuid((void*)UID_BASE, CHIP_UID_LEN);
+        canserial_set_uuid((void *)uid_base, CHIP_UID_LEN);  //(void*)UID_BASE
 }
 DECL_INIT(chipid_init);

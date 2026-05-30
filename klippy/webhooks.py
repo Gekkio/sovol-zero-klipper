@@ -5,6 +5,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license
 import logging, socket, os, sys, errno, json, collections
 import gcode
+import configparser
 
 REQUEST_LOG_SIZE = 20
 
@@ -366,8 +367,15 @@ class WebHooks:
         for sa in ['log_file', 'config_file', 'software_version', 'cpu_info']:
             response[sa] = start_args.get(sa)
         web_request.send(response)
+    def modify_cfg_value(self, option, new_value):
+        _config = configparser.ConfigParser()
+        _config.read('/home/sovol/printer_data/config/saved_variables.cfg')
+        _config.set('Variables', option, new_value)
+        with open('/home/sovol/printer_data/config/saved_variables.cfg', 'w') as file:
+            _config.write(file)
 
     def _handle_estop_request(self, web_request):
+        self.modify_cfg_value('was_interrupted', "False")
         self.printer.invoke_shutdown("Shutdown due to webhooks request")
 
     def _handle_rpc_registration(self, web_request):

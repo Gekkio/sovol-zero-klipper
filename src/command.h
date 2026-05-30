@@ -6,6 +6,8 @@
 #include <stdint.h> // uint8_t
 #include "ctr.h" // DECL_CTR
 
+extern uint8_t shutCode;
+
 // Declare a function to run when the specified command is received
 #define DECL_COMMAND_FLAGS(FUNC, FLAGS, MSG)                    \
     DECL_CTR("DECL_COMMAND_FLAGS " __stringify(FUNC) " "        \

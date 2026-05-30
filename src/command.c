@@ -15,6 +15,8 @@
 
 static uint8_t next_sequence = MESSAGE_DEST;
 
+uint8_t shutCode;
+
 static uint32_t
 command_encode_ptr(void *p)
 {

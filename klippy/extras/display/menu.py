@@ -7,7 +7,7 @@
 import os, logging, ast, re
 from string import Template
 from . import menu_keys
-
+import configparser
 
 class sentinel:
     pass
@@ -170,9 +170,9 @@ class MenuElement(object):
 
     def get_ns(self, name='.'):
         name = str(name).strip()
-        if name.startswith('..'):
+        if name.startswith('Back'):
             name = ' '.join(
-                [(' '.join(str(self._ns).split(' ')[:-1])), name[2:]])
+                [(' '.join(str(self._ns).split(' ')[:-1])), name[4:]])
         elif name.startswith('.'):
             name = ' '.join([str(self._ns), name[1:]])
         return name.strip()
@@ -532,6 +532,9 @@ class MenuInput(MenuCommand):
         self._input_value = None
         self._input_min = self._eval_min(context)
         self._input_max = self._eval_max(context)
+        rname = self.render_name()
+        if rname.startswith('Ex0') or rname.startswith('Bed'):
+            self._input_max = self._input_max - 5.0
         self._input_value = min(self._input_max, max(
             self._input_min, self._eval_value(context)))
         self._value_changed()
@@ -587,7 +590,7 @@ class MenuList(MenuContainer):
             el.manager.back()
         # create back item
         self._itemBack = self.manager.menuitem_from(
-            'command', name='..', gcode=_cb)
+            'command', name='Back', gcode=_cb)
 
     def _names_aslist(self):
         return self.manager.lookup_children(self.get_ns())
@@ -668,9 +671,10 @@ class MenuVSDList(MenuList):
         sdcard = self.manager.printer.lookup_object('virtual_sdcard', None)
         if sdcard is not None:
             files = sdcard.get_file_list()
+            files = [(r_path, size) for (r_path, size) in files if not r_path.startswith('.')]
             for fname, fsize in files:
-                self.insert_item(self.manager.menuitem_from(
-                    'command', name=repr(fname), gcode='M23 /%s' % str(fname)))
+                self.insert_item(self.manager.menuitem_from(        #\n PRINT_START \nsave_last_file
+                    'command', name=repr(fname), gcode='M23 /%s\nM117 %s\nM24' % (str(fname), fname))) 
 
 
 menu_items = {
@@ -698,7 +702,14 @@ class MenuManager:
         self.gcode_queue = []
         self.context = {}
         self.root = None
-        self._root = config.get('menu_root', '__main')
+        plr_bool = self.read_varibles_cfg_value('was_interrupted')
+        menu_title = ''
+        self.config = config
+        if plr_bool == "True":
+            menu_title = '__resume'
+        else:
+            menu_title = '__main'
+        self._root = config.get('menu_root', menu_title)
         self.cols, self.rows = self.display.get_dimensions()
         self.timeout = config.getint('menu_timeout', 0)
         self.timer = 0
@@ -710,6 +721,7 @@ class MenuManager:
         # register itself for printer callbacks
         self.printer.add_object('menu', self)
         self.printer.register_event_handler("klippy:ready", self.handle_ready)
+        #self.printer.register_event_handler("gcode:belt", self.belt_test)
         # register for key events
         menu_keys.MenuKeys(config, self.key_event)
         # Load local config file in same directory as current module
@@ -937,6 +949,25 @@ class MenuManager:
             elif isinstance(current, MenuCommand):
                 current.run_script('gcode', event=event)
                 current.run_script(event)
+                name = current.render_name(True)
+                if name == "Cancel" or name == "Resume":
+                    self.back()
+                    self.changRootMain()
+                if name in ["Cancel printing", "Resume printing"]:
+                    self.back()
+                if name in ["Belt test", "Calibrate Zoffset", "Cooldown", "Start printing", "Show IP", "OTA", "Bed Mesh", "Quad Gantry Lvl", "Auto-Calibrate", "Preheat PLA", "Preheat ABS"]:
+                    self.back()
+                    self.back()
+                    if name == "Calibrate Zoffset":
+                        self.printer.send_event("klippy:start_print")
+                        self.gcode.run_script("_Delay_Calibrate")
+                if name in ["Load Fil", "Unload Fil", "Tune Hotend PID", "Tune Hotbed PID"]:
+                    self.back()
+                    self.back()
+                    self.back()
+                if name.endswith(".gcode"):
+                    self.back()
+                    self.back()
             else:
                 # current is None, no selection. passthru to container
                 container.run_script(event)
@@ -973,7 +1004,7 @@ class MenuManager:
                 "previous menuitem declaration" % (name,))
         self.menuitems[name] = item
         if isinstance(item, MenuElement):
-            parent = item.get_ns('..')
+            parent = item.get_ns('Back')
             if parent and not existing_item:
                 if item.index is not None:
                     self.children.setdefault(parent, []).insert(
@@ -1018,6 +1049,25 @@ class MenuManager:
             item = menu_items[type](self, cfg)
             self.add_menuitem(item.get_ns(), item)
 
+    def read_varibles_cfg_value(self, option):
+        _config = configparser.ConfigParser()
+        _config.read('/home/sovol/printer_data/config/saved_variables.cfg')
+        _value = _config.get('Variables', option)
+        return _value
+
+    def modify_cfg_value(self, option, new_value):
+        _config = configparser.ConfigParser()
+        _config.read('/home/sovol/printer_data/config/saved_variables.cfg')
+        _config.set('Variables', option, new_value)
+        with open('/home/sovol/printer_data/config/saved_variables.cfg', 'w') as file:
+            _config.write(file)
+
+    def changRootMain(self):
+        self._root = self.config.get('menu_root', '__main')
+        self.load_config(os.path.dirname(__file__), 'menu.cfg')
+        self.load_menuitems(self.config)
+        self.root = self.lookup_menuitem(self._root)
+
     def _click_callback(self, eventtime, event):
         if self.is_running():
             self.press(event)
@@ -1027,16 +1077,17 @@ class MenuManager:
 
     def key_event(self, key, eventtime):
         if key == 'click':
+            #self.gcode.run_script("BEEP")
             self._click_callback(eventtime, key)
         elif key == 'long_click':
             self._click_callback(eventtime, key)
-        elif key == 'up':
-            self.up(False)
-        elif key == 'fast_up':
-            self.up(True)
         elif key == 'down':
-            self.down(False)
+            self.up(False)
         elif key == 'fast_down':
+            self.up(True)
+        elif key == 'up':
+            self.down(False)
+        elif key == 'fast_up':
             self.down(True)
         elif key == 'back':
             self.back()

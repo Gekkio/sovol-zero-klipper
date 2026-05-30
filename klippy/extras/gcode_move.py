@@ -4,6 +4,9 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
+import json
+import configparser
+import os
 
 class GCodeMove:
     def __init__(self, config):
@@ -26,7 +29,7 @@ class GCodeMove:
         handlers = [
             'G1', 'G20', 'G21',
             'M82', 'M83', 'G90', 'G91', 'G92', 'M220', 'M221',
-            'SET_GCODE_OFFSET', 'SAVE_GCODE_STATE', 'RESTORE_GCODE_STATE',
+            'SET_GCODE_OFFSET', 'SAVE_GCODE_STATE', 'RESTORE_GCODE_STATE', 'GET_GCODE_STATE',
         ]
         for cmd in handlers:
             func = getattr(self, 'cmd_' + cmd)
@@ -36,6 +39,7 @@ class GCodeMove:
         gcode.register_command('M114', self.cmd_M114, True)
         gcode.register_command('GET_POSITION', self.cmd_GET_POSITION, True,
                                desc=self.cmd_GET_POSITION_help)
+        gcode.register_command('SOVOL_GET_STATE', self.cmd_SOVOL_GET_STATE)
         self.Coord = gcode.Coord
         # G-Code coordinate manipulation
         self.absolute_coord = self.absolute_extrude = True
@@ -56,6 +60,7 @@ class GCodeMove:
             self.move_with_transform = toolhead.move
             self.position_with_transform = toolhead.get_position
         self.reset_last_position()
+        self.v_sd = self.printer.lookup_object('virtual_sdcard', None)
     def _handle_shutdown(self):
         if not self.is_printer_ready:
             return
@@ -109,10 +114,42 @@ class GCodeMove:
     def reset_last_position(self):
         if self.is_printer_ready:
             self.last_position = self.position_with_transform()
+
+    def modify_cfg_value(self, option, new_value):
+        _config = configparser.ConfigParser()
+        _config.read('/home/sovol/printer_data/config/saved_variables.cfg')
+        _config.set('Variables', option, new_value)
+        with open('/home/sovol/printer_data/config/saved_variables.cfg', 'w') as file:
+            _config.write(file)
+
     # G-Code movement commands
     def cmd_G1(self, gcmd):
         # Move
         params = gcmd.get_command_parameters()
+        if 'G' in params and 'X' in params and 'Y' in params and 'Z' in params:
+            if self.v_sd.cmd_from_sd:
+                #commandline = gcmd.get_commandline()
+                cfg_file_path = '/home/sovol/printer_data/config/saved_variables.cfg'
+                _config = configparser.ConfigParser()
+                _config.read(cfg_file_path)
+                was_inter = _config.get('Variables', 'was_interrupted')
+                last_file = _config.get('Variables', 'last_file')
+                if 'Z' in params and float(params['Z']) > 0.2 and was_inter == 'False' and 'zoffset_test.gcode' not in last_file:
+                    self.modify_cfg_value('was_interrupted', "True")
+
+                # if 'Z' in params:       #for test
+                #     self.z_positon = params['Z']
+                # if self.z_positon != "":    #for test
+                content = {
+                    'commandline': gcmd.get_commandline(),
+                    'Z': params['Z'],                       #self.z_positon, 
+                    'extrude_type': 'M82' if self.absolute_extrude else 'M83',
+                    'e_extrude_abs': 0 #self.Coord(*self.move_position)[3]
+                }
+                with open("/home/sovol/sovol_plr_height", 'w') as height:
+                    json.dump(content, height)
+                    height.flush()
+                    os.fsync(height.fileno())
         try:
             for pos, axis in enumerate('XYZ'):
                 if axis in params:
@@ -271,6 +308,42 @@ class GCodeMove:
                           "gcode homing: %s"
                           % (mcu_pos, stepper_pos, kin_pos, toolhead_pos,
                              gcode_pos, base_pos, homing_pos))
-
+    cmd_GET_GCODE_STATE_help = "Get G-Code coordinate state"
+    def cmd_GET_GCODE_STATE(self, gcmd):
+        gcmd.respond_info("absolute_coord: %s\n"
+                        "absolute_extrude: %s\n"
+                        "base_position: %s\n"
+                        "last_position: %s\n"
+                        "homing_position: %s\n"
+                        "speed: %s\n"
+                        "speed_factor: %s\n"
+                        "extrude_factor: %s\n"
+                        % (self.absolute_coord, self.absolute_extrude, list(self.base_position),list(self.last_position),
+                        list(self.homing_position),self.speed,self.speed_factor,self.extrude_factor))
+    def cmd_SOVOL_GET_STATE(self, gcmd):
+        gcode = self.printer.lookup_object('gcode')
+        toolhead = self.printer.lookup_object('toolhead')
+        with open('/home/sovol/sovol_plr/gcode_move/position', 'r') as position:
+            _pos = position.read()
+        pos = list(eval(_pos))
+        with open('/home/sovol/sovol_plr/gcode_move/gcode_position', 'r') as gcode_position:
+            _g_pos = gcode_position.read()
+        g_pos = list(eval(_pos))
+        with open('/home/sovol/sovol_plr/gcode_move/absolute_coordinates', 'r') as absolute_coordinates:
+            _absolute_coordinates = absolute_coordinates.read()
+        ac = bool(_absolute_coordinates)
+        with open('/home/sovol/sovol_plr/gcode_move/absolute_extrude', 'r') as absolute_extrude:
+            _absolute_extrude = absolute_extrude.read()
+        ae = bool(_absolute_extrude)
+        with open('/home/sovol/sovol_plr/gcode_move/speed', 'r') as speed:
+            _speed = speed.read()
+        gcmd.respond_info("position: %s\n"
+                        "gcode_position: %s\n"
+                        "absolute_coordinates: %s\n"
+                        "absolute_extrude: %s\n" % (pos, g_pos, ac, ae))
+        self.absolute_coord = ac
+        self.absolute_extrude = ae
+        self.last_position = pos
+        self.base_position = pos
 def load_config(config):
     return GCodeMove(config)

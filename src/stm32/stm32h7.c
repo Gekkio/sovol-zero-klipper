@@ -12,8 +12,10 @@
 #include "command.h" // DECL_CONSTANT_STR
 #include "internal.h" // get_pclock_frequency
 #include "sched.h" // sched_main
-
-
+#include "ws2811.h"
+#include "UC1701.h"
+#include "stm32/gpio.h"
+ 
 /****************************************************************
  * Clock setup
  ****************************************************************/
@@ -246,5 +248,12 @@ armcm_main(void)
 
     clock_setup();
 
+    gpio_peripheral(GPIO('B', 0), GPIO_OUTPUT, 0);
+    gpio_out_setup(GPIO('B', 0), 0);
+    gpio_peripheral(GPIO('E', 11), GPIO_OUTPUT, 0);
+    gpio_out_setup(GPIO('E', 11), 0);
+
+    lcd_init();
+    start_lcd();
     sched_main();
 }

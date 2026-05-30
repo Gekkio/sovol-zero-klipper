@@ -313,7 +313,6 @@ class PrinterConfig:
         self._build_status(config)
     def log_config(self, config):
         lines = ["===== Config file =====",
-                 self._build_config_string(config),
                  "======================="]
         self.printer.set_rollover_info("config", "\n".join(lines))
     # Status reporting
@@ -412,7 +411,7 @@ class PrinterConfig:
         self._disallow_include_conflicts(regular_data, cfgname, gcode)
         data = regular_data.rstrip() + autosave_data
         # Determine filenames
-        datestr = time.strftime("-%Y%m%d_%H%M%S")
+        datestr = "-backup"#time.strftime("-%Y%m%d_%H%M%S")
         backup_name = cfgname + datestr
         temp_name = cfgname + "_autosave"
         if cfgname.endswith(".cfg"):
@@ -432,4 +431,4 @@ class PrinterConfig:
             logging.exception(msg)
             raise gcode.error(msg)
         # Request a restart
-        gcode.request_restart('restart')
+        gcode.request_restart('firmware_restart')
