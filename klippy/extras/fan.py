@@ -10,7 +10,7 @@ class Fan:
     def __init__(self, config, default_shutdown_speed=0.):
         self.printer = config.get_printer()
         self.last_fan_value = self.last_req_value = 0. 
-        self.start_check_time == 0
+        self.start_check_time = 0.
         # Read config
         self.max_power = config.getfloat('max_power', 1., above=0., maxval=1.)
         self.kick_start_time = config.getfloat('kick_start_time', 0.1,
